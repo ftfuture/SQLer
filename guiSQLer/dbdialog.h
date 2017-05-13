@@ -2,6 +2,7 @@
 #define DBDIALOG_H
 
 #include <QDialog>
+#include "sqlersetting.h"
 
 namespace Ui {
 class DbDialog;
@@ -21,15 +22,18 @@ public:
     QString hostName() const;
     int port() const;
     QString getDbPath(bool newFileMode, const QString &startWith);
+    void addHistory();
 
 private slots:
     void on_testButton_clicked();
     void on_cancelButton_clicked();
     void on_okButton_clicked();
-
     void on_newButton_clicked();
-
     void on_openButton_clicked();
+
+    void on_historyCombo_currentIndexChanged(int index);
+
+    void on_typeCombo_currentIndexChanged(int index);
 
 private:
     Ui::DbDialog *ui;

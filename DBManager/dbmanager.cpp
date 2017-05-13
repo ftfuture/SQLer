@@ -1,13 +1,14 @@
 #include "dbmanager.h"
 #include <QDebug>
 #include "sqlitemanager.h"
+#include "mysqlmanager.h"
 
 DBManager::DBManager()
 {
     qDebug() << "DB Manager Activated.";
 }
 
-void DBManager::setDBType(DBManagerType type)
+void DBManager::setDBType(DBAdapterType type)
 {
     qDebug() << "DB Type Set - " << type;
 
@@ -18,6 +19,7 @@ void DBManager::setDBType(DBManagerType type)
         adapter = dynamic_cast<DBAdapter *>(new SqliteManager);
         break;
     case MYSQL:
+        adapter = dynamic_cast<DBAdapter *>(new MySQLManager);
         break;
     case MSSQL:
         break;
@@ -29,5 +31,4 @@ void DBManager::setDBType(DBManagerType type)
         break;
     }
 }
-
 

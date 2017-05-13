@@ -15,9 +15,12 @@ class MainWindow : public QMainWindow
 
 public:
     QList<DBManager *> dbManagerList;
-
+    QString m_sSettingsFile;
+    QSettings settings;
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
+    void loadDBManagerInfo();
+    void saveDBManagerInfo();
     QSqlError addConnection(const QString &driver, const QString &dbName, const QString &host,
                                 const QString &user, const QString &passwd, int port);
     void insertRow();

@@ -24,10 +24,13 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += dbmanager.cpp \
-    sqlitemanager.cpp
+    sqlitemanager.cpp \
+    mysqlmanager.cpp
 
 HEADERS += dbmanager.h \
-    sqlitemanager.h
+    sqlitemanager.h \
+    sqlertype.h \
+    mysqlmanager.h
 unix {
     target.path = /usr/lib
     INSTALLS += target

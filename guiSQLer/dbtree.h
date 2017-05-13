@@ -10,9 +10,10 @@ class DbTree : public QWidget
 {
     Q_OBJECT
 public:
+    int selectedIndex=0;
     QList<DBManager *> *dbManagerList;
     explicit DbTree(QWidget *parent = 0);
-    QSqlDatabase currentDatabase() const;
+    //QSqlDatabase currentDatabase() const;
 
 signals:
     void dataTableActivated(const QString &table);

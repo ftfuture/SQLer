@@ -1,16 +1,15 @@
-#ifndef SQLITEMANAGER_H
-#define SQLITEMANAGER_H
-
+#ifndef MYSQLMANAGER_H
+#define MYSQLMANAGER_H
 #include <QObject>
 #include "dbmanager.h"
 
-class SqliteManager : public DBAdapter
+class MySQLManager : public DBAdapter
 {
     Q_OBJECT
 public:
     void loadSchema(const QString &t) override;
     void loadIndex(const QString &t) override;
-    SqliteManager();
+    MySQLManager();
 };
 
-#endif // SQLITEMANAGER_H
+#endif // MYSQLMANAGER_H

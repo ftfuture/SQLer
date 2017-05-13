@@ -23,26 +23,34 @@ DbTree::DbTree(QWidget *parent) : QWidget(parent)
     QMetaObject::connectSlotsByName(this);
 }
 
-static QString qDBCaption(const QSqlDatabase &db)
+static QString qDBCaption(DBAdapter *dbAdapter)
 {
-    QString dbCaption = db.driverName().append(QLatin1Char(':'));
-    if(!db.userName().isEmpty())
-        dbCaption.append(db.userName()).append(QLatin1Char('@'));
-    dbCaption.append(db.databaseName());
+    QString dbCaption = dbAdapter->adapterInfo.typeStr.append(':');
+            //db->driverName().append(QLatin1Char(':'));
+    if(!dbAdapter->adapterInfo.user.isEmpty()) dbCaption.append(dbAdapter->adapterInfo.user).append(QLatin1Char('@'));
+    if(!dbAdapter->adapterInfo.name.isEmpty()) dbCaption.append(':').append(dbAdapter->adapterInfo.name);
+    if(!dbAdapter->adapterInfo.path.isEmpty()) dbCaption.append(':').append(dbAdapter->adapterInfo.path);
+    if(!dbAdapter->adapterInfo.address.isEmpty()) dbCaption.append(':').append(dbAdapter->adapterInfo.address);
+    //dbCaption.append(db->databaseName());
     return dbCaption;
 }
 
 void DbTree::refresh()
 {
+    qDebug() << "refresh";
     tree->clear();
-    QStringList connectionNames = QSqlDatabase::connectionNames();
+    //QStringList connectionNames = QSqlDatabase::connectionNames();
 
     bool isActiveDB = false;
-    for(int i=0; i<connectionNames.count(); ++i){
+    //for(int i=0; i<connectionNames.count(); ++i){
+    for(int i=0; i<dbManagerList->count(); i++){
         QTreeWidgetItem *root = new QTreeWidgetItem(tree);
-        QSqlDatabase db = QSqlDatabase::database(connectionNames.at(i), false);
-        root->setText(0, qDBCaption(db));
-        if(connectionNames.at(i) == currentDB) {
+        //QSqlDatabase db = QSqlDatabase::database(connectionNames.at(i), false);
+        QSqlDatabase db = dbManagerList->at(i)->adapter->database;
+
+        root->setText(0, qDBCaption(dbManagerList->at(i)->adapter));
+        //if(connectionNames.at(i) == currentDB) {
+        if(dbManagerList->at(i)->adapter->database.connectionName() == currentDB) {
             isActiveDB = true;
             setActive(root);
         }
@@ -59,26 +67,24 @@ void DbTree::refresh()
                 QSqlRecord record = driver->record(tables.at(t));
                 for(int col=0; col<record.count(); ++col){
                     QTreeWidgetItem *column = new QTreeWidgetItem(table);
-                    QString colStr = record.field(col).name();
-                    colStr.append("(").append(record.field(col).type()) .append(")");
-                    QVariant variant = record.field(col).type();
                     column->setText(0,tableModel->record().fieldName(col));
                 }
             }
         }
     }
     if(!isActiveDB) {
-        currentDB = connectionNames.value(0);
+        //currentDB = connectionNames.value(0);
+        currentDB = dbManagerList->at(dbManagerList->count()-1)->adapter->database.connectionName();
         setActive(tree->topLevelItem(0));
     }
 
     tree->doItemsLayout();
 }
 
-QSqlDatabase DbTree::currentDatabase() const
-{
-    return QSqlDatabase::database(currentDB);
-}
+//QSqlDatabase DbTree::currentDatabase() const
+//{
+//    return QSqlDatabase::database(currentDB);
+//}
 
 static void qSetBold(QTreeWidgetItem *item, bool bold)
 {
@@ -94,17 +100,19 @@ void DbTree::setActive(QTreeWidgetItem *item)
     }
     if(!item) return;
     qSetBold(item, true);
-    currentDB = QSqlDatabase::connectionNames().value(tree->indexOfTopLevelItem(item));
+    //currentDB = QSqlDatabase::connectionNames().value(tree->indexOfTopLevelItem(item));
+    selectedIndex = tree->indexOfTopLevelItem(item);
+    currentDB = dbManagerList->at(selectedIndex)->adapter->database.connectionName();
+    qDebug() << "Tree : setActive(DB:" << currentDB << ")";
 }
 
 void DbTree::on_tree_itemActivated(QTreeWidgetItem *item, int /* column */)
 {
-    if (!item)
-        return;
+    if (!item) return;
 
-    if (!item->parent()) {
+    if (!item->parent()) {// database
         setActive(item);
-    } else {
+    } else { // table
         qDebug() << "item activated";
         setActive(item->parent());
         emit dataTableActivated(item->text(0));

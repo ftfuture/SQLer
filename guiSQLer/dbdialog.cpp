@@ -13,7 +13,18 @@ DbDialog::DbDialog(QWidget *parent) :
 
     QStringList drivers = QSqlDatabase::drivers();
     ui->typeCombo->addItems(drivers);
+
+    for(int i=0; i<SqlerSetting::getInstance().historyList.count(); i++){
+        QString caption = SqlerSetting::getInstance().historyList.at(i).typeStr+':';
+        if(!SqlerSetting::getInstance().historyList.at(i).user.isEmpty()) caption.append(SqlerSetting::getInstance().historyList.at(i).user).append("@");
+        if(!SqlerSetting::getInstance().historyList.at(i).name.isEmpty()) {
+            caption.append(SqlerSetting::getInstance().historyList.at(i).name);
+            if(!SqlerSetting::getInstance().historyList.at(i).address.isEmpty()) caption.append('/').append(SqlerSetting::getInstance().historyList.at(i).address);
+        } else if(!SqlerSetting::getInstance().historyList.at(i).path.isEmpty()) caption.append(SqlerSetting::getInstance().historyList.at(i).path);
+        ui->historyCombo->addItem(caption);
+    }
 }
+
 
 DbDialog::~DbDialog()
 {
@@ -88,16 +99,62 @@ void DbDialog::on_okButton_clicked()
                                  tr("Please select a database driver"));
         ui->typeCombo->setFocus();
     } else {
+        if(ui->saveCheckBox->isCheckable() == true) addHistory();
+        qDebug() << "history count " << SqlerSetting::getInstance().historyList.count();
         accept();
     }
 }
 
+void DbDialog::addHistory()
+{
+    QDateTime addtime = QDateTime::currentDateTime();
+    int removeIndex=0;
+    if(SqlerSetting::getInstance().historyList.count() >= MAX_COUNT_HISTORY) {
+        for(int i=0; i<SqlerSetting::getInstance().historyList.count(); i++){
+            DBAdapterInfo adapterInfo = SqlerSetting::getInstance().historyList.at(i);
+            if(adapterInfo.addtime.secsTo(addtime) < 0) removeIndex = i;
+        }
+        SqlerSetting::getInstance().historyList.removeAt(removeIndex);
+    }
+    DBAdapterInfo adapterInfo;
+    //DBAdapterInfo &makeAdapterInfo(QString &address, bool isHistory, QString &name, \
+                                   QString &passwd, QString &path, int port, QString &type);
+    adapterInfo = SqlerSetting::getInstance().makeAdapterInfo(ui->addressEdit->text(), ui->saveCheckBox->isChecked(), ui->dbEdit->text(),
+                                                              ui->passwordEdit->text(), ui->pathEdit->text(), ui->portSpinBox->value(),
+                                                              ui->typeCombo->currentText());
+    SqlerSetting::getInstance().historyList.append(adapterInfo);
+    SqlerSetting::getInstance().saveHistoryInfo();
+    qDebug() << SqlerSetting::getInstance().historyList.at(0).typeStr;
+}
+
 void DbDialog::on_newButton_clicked()
 {
-
+    ui->pathEdit->setText(getDbPath(true, NULL));
 }
 
 void DbDialog::on_openButton_clicked()
 {
-    ui->pathEdit->setText(getDbPath(true, NULL));
+    ui->pathEdit->setText(getDbPath(false, NULL));
+}
+
+void DbDialog::on_historyCombo_currentIndexChanged(int index)
+{
+    if(index == 0) return;
+    DBAdapterInfo adapterInfo = SqlerSetting::getInstance().historyList.at(index-1);
+    ui->addressEdit->setText(adapterInfo.address);
+    ui->dbEdit->setText(adapterInfo.name);
+    ui->useridEdit->setText(adapterInfo.user);
+    ui->pathEdit->setText(adapterInfo.path);
+    ui->portSpinBox->setValue(adapterInfo.port);
+    ui->saveCheckBox->setChecked(Qt::Checked);
+
+}
+
+void DbDialog::on_typeCombo_currentIndexChanged(int index)
+{
+    switch(index){
+        case 1:
+            ui->portSpinBox->setValue(3306);
+        break;
+    }
 }

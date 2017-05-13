@@ -12,6 +12,8 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
 
+    //loadDBManagerInfo();
+
     ui->tree->dbManagerList = &dbManagerList;
 
     ui->dataTable->addAction(ui->insertRowAction);
@@ -39,12 +41,43 @@ MainWindow::MainWindow(QWidget *parent) :
      QObject::connect(this, SIGNAL(statusMessage(QString)),
                      ui->statusBar, SLOT(showMessage(QString)));
     emit statusMessage(tr("Ready."));
-
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::loadDBManagerInfo()
+{
+    QSettings settings;
+    qDeleteAll(dbManagerList);
+    for(int i=0; i<SqlerSetting::getInstance().historyList.count(); i++){
+        DBAdapterInfo adapterInfo = SqlerSetting::getInstance().historyList.at(i);
+        if(adapterInfo.isLoad == false) continue;
+    }
+}
+
+void MainWindow::saveDBManagerInfo()
+{
+    QSettings settings;
+    settings.beginWriteArray("DBManager History");
+    for(int i=0; i<dbManagerList.count(); i++){
+        settings.setArrayIndex(i);
+//        DBAdapterInfo adapterInfo = historyList->at(i);
+//        settings.setValue("address",adapterInfo.address);
+//        settings.setValue("addtime",adapterInfo.addtime);
+//        settings.setValue("isHistory",adapterInfo.isHistory);
+//        settings.setValue("isLoad",adapterInfo.isLoad);
+//        settings.setValue("name",adapterInfo.name);
+//        settings.setValue("passwd",adapterInfo.passwd);
+//        settings.setValue("path",adapterInfo.path);
+//        settings.setValue("port",adapterInfo.port);
+//        settings.setValue("type",adapterInfo.type);
+//        settings.setValue("typeStr",adapterInfo.typeStr);
+//        settings.setValue("user",adapterInfo.user);
+    }
+    settings.endArray();
 }
 
 void MainWindow::on_action_Add_Database_triggered()
@@ -55,27 +88,39 @@ QSqlError MainWindow::addConnection(const QString &driver, const QString &dbName
                             const QString &user, const QString &passwd, int port)
 {
     qDebug() << "addConnection " << driver << " , " << dbName << " , " << host << " , " << user << " , " << passwd << " , " << port;
-    static int cCount = 0;
 
     QSqlError err;
-    QSqlDatabase db = QSqlDatabase::addDatabase(driver);
-    db.setDatabaseName(dbName);
-    db.setHostName(host);
-    db.setPort(port);
-    if (!db.open(user, passwd)) {
-        err = db.lastError();
+    DBManager *dbManager = new DBManager;
+    if(driver.contains("sqlite", Qt::CaseInsensitive)) {
+        dbManager->setDBType(DBAdapterType::SQLITE);
+    } else if(driver.contains("mysql", Qt::CaseInsensitive)) {
+        dbManager->setDBType(DBAdapterType::MYSQL);
+    } else {
+        delete dbManager;
+        qDebug() << "Unsupported database type.";
+        return dbManager->adapter->database.lastError();
+    }
+
+    dbManager->adapter->database = QSqlDatabase::addDatabase(driver,dbName);
+    dbManager->adapter->database.setDatabaseName(dbName);
+    dbManager->adapter->database.setHostName(host);
+    dbManager->adapter->database.setPort(port);
+    qDebug() << " before open";
+    if (!dbManager->adapter->database.open(user, passwd)) {
+        err = dbManager->adapter->database.lastError();
+        delete dbManager;
         qDebug() << "addConnection failed " << err;
         return err;
         //db = QSqlDatabase();
         //QSqlDatabase::removeDatabase(QString("Sqler%1").arg(cCount));
     }
 
-    if(driver.contains("sqlite", Qt::CaseInsensitive)) {
-        DBManager *dbManager = new DBManager;
-        dbManager->setDBType(DBManagerType::SQLITE);
-        dbManager->adapter->database = &db;
-        dbManagerList.append(dbManager);
-    }
+    dbManagerList.append(dbManager);
+    qDebug() << dbManager->adapter->database.isOpen();
+    qDebug() << dbManager->adapter->database.connectionName();
+    qDebug() << dbManager->adapter->database.driverName();
+    qDebug() << "new adapter activated.";
+
     ui->tree->refresh();
 
     return err;
@@ -122,7 +167,7 @@ void MainWindow::addConnection()
 void MainWindow::exec()
 {
     QSqlQueryModel *model = new QSqlQueryModel(ui->dataTable);
-    model->setQuery(QSqlQuery(ui->queryEdit->toPlainText(), ui->tree->currentDatabase()));
+    model->setQuery(QSqlQuery(ui->queryEdit->toPlainText(), dbManagerList.at(ui->tree->selectedIndex)->adapter->database));
     ui->dataTable->setModel(model);
 
     if (model->lastError().type() != QSqlError::NoError)
@@ -134,38 +179,49 @@ void MainWindow::exec()
                            model->query().numRowsAffected()));
 
     updateActions();
+    ui->tree->refresh();
 }
 
 void MainWindow::showTable(const QString &t)
 {
-    // data
-    QSqlTableModel *model = new QSqlTableModel(ui->dataTable, ui->tree->currentDatabase());
-    //model->setEditStrategy(QSqlTableModel::OnRowChange);
-    model->setTable(ui->tree->currentDatabase().driver()->escapeIdentifier(t, QSqlDriver::TableName));
-    model->select();
-    if (model->lastError().type() != QSqlError::NoError)
-        emit statusMessage(model->lastError().text());
-    ui->dataTable->setModel(model);
+    // data table
+    if(dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel == NULL)
+        dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel = new QSqlTableModel(ui->tree, dbManagerList.at(ui->tree->selectedIndex)->adapter->database);
+
+    dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->setEditStrategy(QSqlTableModel::OnRowChange);
+    dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->setTable(dbManagerList.at(ui->tree->selectedIndex)->adapter->database.driver()->escapeIdentifier(t, QSqlDriver::TableName));
+    dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->select();
+
+    if (dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->lastError().type() != QSqlError::NoError)
+        emit statusMessage(dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->lastError().text());
+    ui->dataTable->setModel(dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel);
     ui->dataTable->setEditTriggers(QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed);
 
     connect(ui->dataTable->selectionModel(), SIGNAL(currentRowChanged(QModelIndex,QModelIndex)),
             this, SLOT(currentChanged()));
 
-    // schema
-    QSqlQueryModel *schemaModel = new QSqlQueryModel(ui->schemaTable);
-    //QString *querystring = "PRAGMA table_info(" << t << ")";
-    schemaModel->setQuery(QString("PRAGMA table_info(").append(t).append(")"), ui->tree->currentDatabase());
-    ui->schemaTable->setModel(schemaModel);
-    if(schemaModel->lastError().type() != QSqlError::NoError)
-        emit statusMessage(model->lastError().text());
-//    else if(!model->query().isSelect())
-//        emit statusMessage("Schema Query Ok");
+    // schema table
+    if(dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel == NULL)
+        dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel = new QSqlQueryModel(ui->tree);
+    dbManagerList.at(ui->tree->selectedIndex)->adapter->loadSchema(t);
+    ui->schemaTable->setModel(dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel);
+    if(dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel->lastError().type() != QSqlError::NoError)
+        emit statusMessage(dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel->lastError().text());
+
+    // index table
+    if(dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel == NULL)
+        dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel = new QSqlQueryModel(ui->indexTable);
+    dbManagerList.at(ui->tree->selectedIndex)->adapter->loadIndex(t);
+    ui->indexTable->setModel(dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel);
+    if(dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel->lastError().type() != QSqlError::NoError)
+        emit statusMessage(dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel->lastError().text());
+
     updateActions();
 }
 
 void MainWindow::showMetaData(const QString &t)
 {
-    QSqlRecord rec = ui->tree->currentDatabase().record(t);
+    QSqlRecord rec = dbManagerList.at(ui->tree->selectedIndex)->adapter->database.record(t);
     QStandardItemModel *model = new QStandardItemModel(ui->dataTable);
 
     model->insertRows(0, rec.count());

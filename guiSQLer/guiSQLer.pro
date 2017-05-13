@@ -25,11 +25,13 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += main.cpp\
         mainwindow.cpp \
     dbtree.cpp \
-    dbdialog.cpp
+    dbdialog.cpp \
+    sqlersetting.cpp
 
 HEADERS  += mainwindow.h \
     dbtree.h \
-    dbdialog.h
+    dbdialog.h \
+    sqlersetting.h
 
 FORMS    += mainwindow.ui \
     dbdialog.ui
