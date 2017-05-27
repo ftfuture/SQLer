@@ -1,17 +1,8 @@
 #ifndef DBMANAGER_H
 #define DBMANAGER_H
 #include <QtSql>
+#include <QDebug>
 #include "sqlertype.h"
-
-class DBAdapter;
-class DBManager
-{
-
-public:
-    DBAdapter *adapter; // Facade
-    DBManager();
-    void setDBType(DBAdapterType type);
-};
 
 class DBAdapter : public QObject
 {
@@ -29,5 +20,14 @@ public:
     QSqlTableModel *dataModel=NULL;
     QSqlQueryModel *schemaModel=NULL;
     QSqlQueryModel *indexModel=NULL;
+};
+
+class DBManager
+{
+
+public:
+    DBAdapter *adapter; // Facade
+    DBManager();
+    void setDBType(const QString &driver);
 };
 #endif // DBMANAGER_H

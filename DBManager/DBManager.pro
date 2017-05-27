@@ -25,12 +25,14 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += dbmanager.cpp \
     sqlitemanager.cpp \
-    mysqlmanager.cpp
+    mysqlmanager.cpp \
+    postgresqlmanager.cpp
 
 HEADERS += dbmanager.h \
     sqlitemanager.h \
     sqlertype.h \
-    mysqlmanager.h
+    mysqlmanager.h \
+    postgresqlmanager.h
 unix {
     target.path = /usr/lib
     INSTALLS += target

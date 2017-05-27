@@ -14,22 +14,23 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    QList<DBManager *> dbManagerList;
     QString m_sSettingsFile;
     QSettings settings;
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
     void loadDBManagerInfo();
     void saveDBManagerInfo();
-    QSqlError addConnection(const QString &driver, const QString &dbName, const QString &host,
-                                const QString &user, const QString &passwd, int port);
+    QSqlError addConnection(const QString &driver, const QString &connectionName, const QString &dbName, const QString &address, bool isHistory,
+                                const QString &user, const QString &passwd,const QString &path, int port);
+    QSqlError reconnectConnection(int index, const QString &driver, const QString &connectionName, const QString &dbName, const QString &address, bool isHistory,
+                                  const QString &user, const QString &passwd,const QString &path, int port);
     void insertRow();
     void deleteRow();
     void updateActions();
 
 private slots:
     void addConnection();
-    void on_action_Add_Database_triggered();
+    void reconnectConnection(int index);
     void exec();
     void about();
     void showTable(const QString &table);
@@ -50,6 +51,11 @@ private slots:
     { showTable(table); }
     void on_tree_metaDataRequested(const QString &table)
     { showMetaData(table); }
+    void on_tree_reconnectRequested(int index)
+    { reconnectConnection(index); }
+    void on_tree_activeDBRequested(int index);
+    void on_reconnectConnectionAction_triggered();
+
 private:
     Ui::MainWindow *ui;
 

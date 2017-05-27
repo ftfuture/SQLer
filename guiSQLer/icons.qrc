@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file>img/database_connect.png</file>
+        <file>img/database_reload.png</file>
+        <file>img/commit.png</file>
+        <file>img/rollback.png</file>
+        <file>img/insert_row.png</file>
+        <file>img/delete_row.png</file>
+    </qresource>
+</RCC>

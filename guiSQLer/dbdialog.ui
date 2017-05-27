@@ -129,6 +129,9 @@
         <property name="text">
          <string>Save</string>
         </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
      </layout>
@@ -154,13 +157,6 @@
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
-     <item>
-      <widget class="QPushButton" name="testButton">
-       <property name="text">
-        <string>Test Connection</string>
-       </property>
-      </widget>
-     </item>
      <item>
       <spacer name="horizontalSpacer">
        <property name="orientation">
@@ -192,6 +188,21 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>typeCombo</tabstop>
+  <tabstop>addressEdit</tabstop>
+  <tabstop>dbEdit</tabstop>
+  <tabstop>useridEdit</tabstop>
+  <tabstop>passwordEdit</tabstop>
+  <tabstop>portSpinBox</tabstop>
+  <tabstop>saveCheckBox</tabstop>
+  <tabstop>historyCombo</tabstop>
+  <tabstop>okButton</tabstop>
+  <tabstop>cancelButton</tabstop>
+  <tabstop>pathEdit</tabstop>
+  <tabstop>newButton</tabstop>
+  <tabstop>openButton</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

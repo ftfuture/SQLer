@@ -1,5 +1,4 @@
 #include "mysqlmanager.h"
-#include <QDebug>
 
 MySQLManager::MySQLManager()
 {

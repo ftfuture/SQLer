@@ -44,3 +44,6 @@ DEPENDPATH += $$PWD/../DBManager
 
 win32:!win32-g++: PRE_TARGETDEPS += $$OUT_PWD/../DBManager/DBManager.lib
 else:unix|win32-g++: PRE_TARGETDEPS += $$OUT_PWD/../DBManager/libDBManager.a
+
+RESOURCES += \
+    icons.qrc

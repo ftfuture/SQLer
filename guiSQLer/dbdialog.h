@@ -20,12 +20,15 @@ public:
     QString userName() const;
     QString password() const;
     QString hostName() const;
+    QString pathName() const;
+    QString connectionName() const;
+    bool isSave() const;
     int port() const;
     QString getDbPath(bool newFileMode, const QString &startWith);
     void addHistory();
+    void setAdapterInfo(const DBAdapterInfo &adapterInfo);
 
 private slots:
-    void on_testButton_clicked();
     void on_cancelButton_clicked();
     void on_okButton_clicked();
     void on_newButton_clicked();

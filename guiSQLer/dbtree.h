@@ -10,16 +10,18 @@ class DbTree : public QWidget
 {
     Q_OBJECT
 public:
-    int selectedIndex=0;
-    QList<DBManager *> *dbManagerList;
+    int selectedIndex=-1;
     explicit DbTree(QWidget *parent = 0);
-    //QSqlDatabase currentDatabase() const;
+    static QString qDBCaption(DBAdapter *dbAdapter);
 
 signals:
+    void activeDBRequested(int index);
+    void reconnectRequested(int index);
     void dataTableActivated(const QString &table);
     void metaDataRequested(const QString &tableName);
 
 public slots:
+    void deleteDB();
     void refresh();
     void onMetaAction();
     void on_tree_itemActivated(QTreeWidgetItem *item, int column);
@@ -30,6 +32,7 @@ private:
 
     QTreeWidget *tree;
     QAction *metaAction;
+    QAction *deleteAction;
     QString currentDB;
 };
 

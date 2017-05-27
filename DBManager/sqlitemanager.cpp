@@ -1,5 +1,4 @@
 #include "sqlitemanager.h"
-#include <QDebug>
 
 SqliteManager::SqliteManager()
 {

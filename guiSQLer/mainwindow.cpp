@@ -1,20 +1,20 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "dbdialog.h"
+#include "sqlersetting.h"
 #include <QtSql>
 #include <QStandardItemModel>
 #include <QMessageBox>
-#include "QDebug"
+#include <QAction>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
+    qDebug() << "MainWindow..";
     ui->setupUi(this);
-
-    //loadDBManagerInfo();
-
-    ui->tree->dbManagerList = &dbManagerList;
+    ui->tree->refresh();
+    ui->dataToolBar->layout()->setMargin(0);
 
     ui->dataTable->addAction(ui->insertRowAction);
     ui->dataTable->addAction(ui->deleteRowAction);
@@ -28,17 +28,61 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->vertSplitter->setStretchFactor(0,2);
     ui->vertSplitter->setStretchFactor(1,1);
     ui->horzSplitter->setStretchFactor(0,1);
-    ui->horzSplitter->setStretchFactor(1,2);
-
-    if(QSqlDatabase::drivers().isEmpty())
-        QMessageBox::information(this, tr("No database drivers found"),
-                                 tr("This app requires at least one Qt database driver. "
-                                    "Please check the documentation how to build the "
-                                    "Qt SQL plugins."));
+    ui->horzSplitter->setStretchFactor(1,3);
 
     if (QSqlDatabase::connectionNames().isEmpty())
         QMetaObject::invokeMethod(this, "addConnection", Qt::QueuedConnection);
-     QObject::connect(this, SIGNAL(statusMessage(QString)),
+
+    // set toolbar
+    ui->submitAction->setShortcut(QKeySequence::Save);
+    ui->submitAction->setStatusTip(tr("Commit Change."));
+    ui->submitAction->setToolTip(tr("Commit Change."));
+    const QIcon submitIcon = QIcon::fromTheme("Commit Change.", QIcon(":/icons/img/commit.png"));
+    ui->submitAction->setIcon(submitIcon);
+    ui->submitAction->setEnabled(false);
+
+    ui->revertAction->setShortcut(QKeySequence::Redo);
+    ui->revertAction->setStatusTip(tr("Rollback Change."));
+    ui->revertAction->setToolTip(tr("Rollback Change."));
+    const QIcon revertIcon = QIcon::fromTheme("Rollback Change.", QIcon(":/icons/img/rollback.png"));
+    ui->revertAction->setIcon(revertIcon);
+    ui->revertAction->setEnabled(false);
+
+    ui->insertRowAction->setShortcut(QKeySequence::New);
+    ui->insertRowAction->setStatusTip(tr("Insert Row."));
+    ui->insertRowAction->setToolTip(tr("Insert Row"));
+    const QIcon insertIcon = QIcon::fromTheme("Insert Row.", QIcon(":/icons/img/insert_row.png"));
+    ui->insertRowAction->setIcon(insertIcon);
+    ui->insertRowAction->setEnabled(false);
+
+    ui->deleteRowAction->setShortcut(QKeySequence::Delete);
+    ui->deleteRowAction->setStatusTip(tr("Delete Row."));
+    ui->deleteRowAction->setToolTip(tr("Delete Row."));
+    const QIcon deleteIcon = QIcon::fromTheme("Delete Row.", QIcon(":/icons/img/delete_row.png"));
+    ui->deleteRowAction->setIcon(deleteIcon);
+    ui->deleteRowAction->setEnabled(false);
+
+    ui->addConnectionAction->setShortcut(QKeySequence::Open);
+    ui->addConnectionAction->setStatusTip(tr("Add Connection"));
+    ui->addConnectionAction->setToolTip(tr("Add Connection"));
+    const QIcon addConnectionIcon = QIcon::fromTheme("Add Connection", QIcon(":/icons/img/database_connect.png"));
+    ui->addConnectionAction->setIcon(addConnectionIcon);
+    connect(ui->addConnectionAction, SIGNAL(triggered()), this, SLOT(addConnection()));
+
+    ui->reconnectConnectionAction->setShortcut(QKeySequence::Refresh);
+    ui->reconnectConnectionAction->setStatusTip(tr("Reconnect Connection"));
+    ui->reconnectConnectionAction->setToolTip(tr("Reconnect Connection"));
+    const QIcon reconnectConnectionIcon = QIcon::fromTheme("Reconnect Connection", QIcon(":/icons/img/database_reload.png"));
+    ui->reconnectConnectionAction->setIcon(reconnectConnectionIcon);
+
+    ui->mainToolBar->addAction(ui->addConnectionAction);
+    ui->mainToolBar->addAction(ui->reconnectConnectionAction);
+    ui->dataToolBar->addAction(ui->submitAction);
+    ui->dataToolBar->addAction(ui->revertAction);
+    ui->dataToolBar->addAction(ui->insertRowAction);
+    ui->dataToolBar->addAction(ui->deleteRowAction);
+
+    QObject::connect(this, SIGNAL(statusMessage(QString)),
                      ui->statusBar, SLOT(showMessage(QString)));
     emit statusMessage(tr("Ready."));
 }
@@ -48,78 +92,54 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::loadDBManagerInfo()
-{
-    QSettings settings;
-    qDeleteAll(dbManagerList);
-    for(int i=0; i<SqlerSetting::getInstance().historyList.count(); i++){
-        DBAdapterInfo adapterInfo = SqlerSetting::getInstance().historyList.at(i);
-        if(adapterInfo.isLoad == false) continue;
-    }
-}
 
-void MainWindow::saveDBManagerInfo()
-{
-    QSettings settings;
-    settings.beginWriteArray("DBManager History");
-    for(int i=0; i<dbManagerList.count(); i++){
-        settings.setArrayIndex(i);
-//        DBAdapterInfo adapterInfo = historyList->at(i);
-//        settings.setValue("address",adapterInfo.address);
-//        settings.setValue("addtime",adapterInfo.addtime);
-//        settings.setValue("isHistory",adapterInfo.isHistory);
-//        settings.setValue("isLoad",adapterInfo.isLoad);
-//        settings.setValue("name",adapterInfo.name);
-//        settings.setValue("passwd",adapterInfo.passwd);
-//        settings.setValue("path",adapterInfo.path);
-//        settings.setValue("port",adapterInfo.port);
-//        settings.setValue("type",adapterInfo.type);
-//        settings.setValue("typeStr",adapterInfo.typeStr);
-//        settings.setValue("user",adapterInfo.user);
-    }
-    settings.endArray();
-}
 
-void MainWindow::on_action_Add_Database_triggered()
+void MainWindow::reconnectConnection(int index)
 {
-    addConnection();
+    qDebug() << "reconnectConnection";
+    DbDialog dialog(this);
+    dialog.setAdapterInfo(SqlerSetting::getInstance().SqlerSetting::getInstance().dbManagerList.at(index)->adapter->adapterInfo);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    QSqlError err = reconnectConnection(index, dialog.driverName(), dialog.connectionName(), dialog.databaseName(), dialog.hostName(), dialog.isSave(), \
+                                      dialog.userName(), dialog.password(), dialog.pathName(), dialog.port());
+    if (err.type() != QSqlError::NoError)
+            QMessageBox::warning(this, tr("Unable to open database"), tr("An error occurred while "
+                                       "opening the connection: ") + err.text());
+    ui->tree->refresh();
 }
-QSqlError MainWindow::addConnection(const QString &driver, const QString &dbName, const QString &host,
-                            const QString &user, const QString &passwd, int port)
+QSqlError MainWindow::reconnectConnection(int index, const QString &driver, const QString &connectionName, const QString &dbName, const QString &address, bool isHistory,
+                            const QString &user, const QString &passwd, const QString &path, int port)
 {
-    qDebug() << "addConnection " << driver << " , " << dbName << " , " << host << " , " << user << " , " << passwd << " , " << port;
+    qDebug() << index  << " reconnectConnection " << driver << " , " << dbName << " , " << address << " , " << user << " , " << passwd << " , " << port;
+
+
+
+    DBManager *dbManager = SqlerSetting::getInstance().dbManagerList.at(index);
+    dbManager->adapter->adapterInfo = SqlerSetting::getInstance().makeAdapterInfo(driver, connectionName, address, \
+                                                        isHistory, dbName, user, passwd, path, port);
+
+    if(dbManager->adapter->database.isValid())
+        QSqlDatabase::removeDatabase(dbManager->adapter->database.connectionName());
+    dbManager->adapter->database = QSqlDatabase::addDatabase(driver,connectionName);
+    if(!path.isEmpty()) dbManager->adapter->database.setDatabaseName(path);
+    else dbManager->adapter->database.setDatabaseName(dbName);
+    dbManager->adapter->database.setHostName(address);
+    dbManager->adapter->database.setPort(port);
+    dbManager->adapter->database.setUserName(user);
+    dbManager->adapter->database.setPassword(passwd);
 
     QSqlError err;
-    DBManager *dbManager = new DBManager;
-    if(driver.contains("sqlite", Qt::CaseInsensitive)) {
-        dbManager->setDBType(DBAdapterType::SQLITE);
-    } else if(driver.contains("mysql", Qt::CaseInsensitive)) {
-        dbManager->setDBType(DBAdapterType::MYSQL);
-    } else {
-        delete dbManager;
-        qDebug() << "Unsupported database type.";
-        return dbManager->adapter->database.lastError();
-    }
-
-    dbManager->adapter->database = QSqlDatabase::addDatabase(driver,dbName);
-    dbManager->adapter->database.setDatabaseName(dbName);
-    dbManager->adapter->database.setHostName(host);
-    dbManager->adapter->database.setPort(port);
-    qDebug() << " before open";
-    if (!dbManager->adapter->database.open(user, passwd)) {
+    if(!dbManager->adapter->database.open()){
         err = dbManager->adapter->database.lastError();
-        delete dbManager;
-        qDebug() << "addConnection failed " << err;
+        //delete dbManager;
+        qDebug() << "reconnectConnection failed " << err;
         return err;
-        //db = QSqlDatabase();
-        //QSqlDatabase::removeDatabase(QString("Sqler%1").arg(cCount));
     }
 
-    dbManagerList.append(dbManager);
-    qDebug() << dbManager->adapter->database.isOpen();
-    qDebug() << dbManager->adapter->database.connectionName();
-    qDebug() << dbManager->adapter->database.driverName();
-    qDebug() << "new adapter activated.";
+    SqlerSetting::getInstance().dbList.replace(index, dbManager->adapter->adapterInfo);
+    SqlerSetting::getInstance().saveDBListInfo();
 
     ui->tree->refresh();
 
@@ -128,46 +148,66 @@ QSqlError MainWindow::addConnection(const QString &driver, const QString &dbName
 
 void MainWindow::addConnection()
 {
+    qDebug() << "MainWindow::addConnection";
     DbDialog dialog(this);
     if (dialog.exec() != QDialog::Accepted)
         return;
 
-    //if (dialog.useInMemoryDatabase()) {
-//        QSqlDatabase::database("in_mem_db", false).close();
-//        QSqlDatabase::removeDatabase("in_mem_db");
-//        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "in_mem_db");
-//        db.setDatabaseName(":memory:");
-//        if (!db.open())
-//            QMessageBox::warning(this, tr("Unable to open database"), tr("An error occurred while "
-//                                                                         "opening the connection: ") + db.lastError().text());
-//        QSqlQuery q("", db);
-//        q.exec("drop table Movies");
-//        q.exec("drop table Names");
-//        q.exec("create table Movies (id integer primary key, Title varchar, Director varchar, Rating number)");
-//        q.exec("insert into Movies values (0, 'Metropolis', 'Fritz Lang', '8.4')");
-//        q.exec("insert into Movies values (1, 'Nosferatu, eine Symphonie des Grauens', 'F.W. Murnau', '8.1')");
-//        q.exec("insert into Movies values (2, 'Bis ans Ende der Welt', 'Wim Wenders', '6.5')");
-//        q.exec("insert into Movies values (3, 'Hardware', 'Richard Stanley', '5.2')");
-//        q.exec("insert into Movies values (4, 'Mitchell', 'Andrew V. McLaglen', '2.1')");
-//        q.exec("create table Names (id integer primary key, Firstname varchar, Lastname varchar, City varchar)");
-//        q.exec("insert into Names values (0, 'Sala', 'Palmer', 'Morristown')");
-//        q.exec("insert into Names values (1, 'Christopher', 'Walker', 'Morristown')");
-//        q.exec("insert into Names values (2, 'Donald', 'Duck', 'Andeby')");
-//        q.exec("insert into Names values (3, 'Buck', 'Rogers', 'Paris')");
-//        q.exec("insert into Names values (4, 'Sherlock', 'Holmes', 'London')");
-//        ui->tree->refresh();
-    //} else {
-        QSqlError err = addConnection(dialog.driverName(), dialog.databaseName(), dialog.hostName(),
-                           dialog.userName(), dialog.password(), dialog.port());
-        if (err.type() != QSqlError::NoError)
+    QSqlError err = addConnection(dialog.driverName(), dialog.connectionName(), dialog.databaseName(), dialog.hostName(), dialog.isSave(), \
+                                      dialog.userName(), dialog.password(), dialog.pathName(), dialog.port());
+    if (err.type() != QSqlError::NoError)
             QMessageBox::warning(this, tr("Unable to open database"), tr("An error occurred while "
                                        "opening the connection: ") + err.text());
-//    }
 }
+
+QSqlError MainWindow::addConnection(const QString &driver, const QString &connectionName, const QString &dbName, const QString &address, bool isHistory,
+                            const QString &user, const QString &passwd, const QString &path, int port)
+{
+    qDebug() << "addConnection " << driver << " , " << dbName << " , " << address << " , " << user << " , " << passwd << " , " << port;
+
+    QSqlError err;
+    if(QSqlDatabase::contains(connectionName)){
+        QMessageBox::warning(this, tr("Unable to open database"), tr("An error occurred while "
+                                                                     "opening the connection: ") + "already have same connection name");
+        return err;
+    }
+
+    DBManager *dbManager = new DBManager;
+    dbManager->setDBType(driver);
+    dbManager->adapter->adapterInfo = SqlerSetting::getInstance().makeAdapterInfo(driver, connectionName, address, \
+                                                        isHistory, dbName, user, passwd, path, port);
+    dbManager->adapter->database = QSqlDatabase::addDatabase(driver,connectionName);
+    if(!path.isEmpty()) dbManager->adapter->database.setDatabaseName(path);
+    else dbManager->adapter->database.setDatabaseName(dbName);
+    dbManager->adapter->database.setHostName(address);
+    dbManager->adapter->database.setPort(port);
+    dbManager->adapter->database.setUserName(user);
+    dbManager->adapter->database.setPassword(passwd);
+
+    if(!dbManager->adapter->database.open()){
+        err = dbManager->adapter->database.lastError();
+        QSqlDatabase::removeDatabase(dbManager->adapter->database.connectionName());
+        delete dbManager;
+        qDebug() << "addConnection failed " << err;
+        return err;
+    }
+
+    SqlerSetting::getInstance().dbManagerList.append(dbManager);
+    if(dbManager->adapter->adapterInfo.isLoad) {
+        qDebug() << "add dbtree list " << dbManager->adapter->adapterInfo.connection;
+        SqlerSetting::getInstance().dbList.append(dbManager->adapter->adapterInfo);
+        SqlerSetting::getInstance().saveDBListInfo();
+    }
+
+    ui->tree->refresh();
+    return err;
+}
+
 void MainWindow::exec()
 {
+    qDebug() << "exec";
     QSqlQueryModel *model = new QSqlQueryModel(ui->dataTable);
-    model->setQuery(QSqlQuery(ui->queryEdit->toPlainText(), dbManagerList.at(ui->tree->selectedIndex)->adapter->database));
+    model->setQuery(QSqlQuery(ui->queryEdit->toPlainText(), SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->database));
     ui->dataTable->setModel(model);
 
     if (model->lastError().type() != QSqlError::NoError)
@@ -184,44 +224,46 @@ void MainWindow::exec()
 
 void MainWindow::showTable(const QString &t)
 {
+    qDebug() << "showTable";
     // data table
-    if(dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel == NULL)
-        dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel = new QSqlTableModel(ui->tree, dbManagerList.at(ui->tree->selectedIndex)->adapter->database);
+    if(SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel == NULL)
+        SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel = new QSqlTableModel(ui->tree, SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->database);
 
-    dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->setEditStrategy(QSqlTableModel::OnRowChange);
-    dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->setTable(dbManagerList.at(ui->tree->selectedIndex)->adapter->database.driver()->escapeIdentifier(t, QSqlDriver::TableName));
-    dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->select();
+    SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->setEditStrategy(QSqlTableModel::OnRowChange);
+    SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->setTable(SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->database.driver()->escapeIdentifier(t, QSqlDriver::TableName));
+    SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->select();
 
-    if (dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->lastError().type() != QSqlError::NoError)
-        emit statusMessage(dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->lastError().text());
-    ui->dataTable->setModel(dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel);
+    if (SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->lastError().type() != QSqlError::NoError)
+        emit statusMessage(SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel->lastError().text());
+    ui->dataTable->setModel(SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->dataModel);
     ui->dataTable->setEditTriggers(QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed);
 
     connect(ui->dataTable->selectionModel(), SIGNAL(currentRowChanged(QModelIndex,QModelIndex)),
             this, SLOT(currentChanged()));
 
     // schema table
-    if(dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel == NULL)
-        dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel = new QSqlQueryModel(ui->tree);
-    dbManagerList.at(ui->tree->selectedIndex)->adapter->loadSchema(t);
-    ui->schemaTable->setModel(dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel);
-    if(dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel->lastError().type() != QSqlError::NoError)
-        emit statusMessage(dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel->lastError().text());
+    if(SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel == NULL)
+        SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel = new QSqlQueryModel(ui->tree);
+    SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->loadSchema(t);
+    ui->schemaTable->setModel(SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel);
+    if(SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel->lastError().type() != QSqlError::NoError)
+        emit statusMessage(SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->schemaModel->lastError().text());
 
     // index table
-    if(dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel == NULL)
-        dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel = new QSqlQueryModel(ui->indexTable);
-    dbManagerList.at(ui->tree->selectedIndex)->adapter->loadIndex(t);
-    ui->indexTable->setModel(dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel);
-    if(dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel->lastError().type() != QSqlError::NoError)
-        emit statusMessage(dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel->lastError().text());
+    if(SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel == NULL)
+        SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel = new QSqlQueryModel(ui->indexTable);
+    SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->loadIndex(t);
+    ui->indexTable->setModel(SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel);
+    if(SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel->lastError().type() != QSqlError::NoError)
+        emit statusMessage(SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->indexModel->lastError().text());
 
     updateActions();
 }
 
 void MainWindow::showMetaData(const QString &t)
 {
-    QSqlRecord rec = dbManagerList.at(ui->tree->selectedIndex)->adapter->database.record(t);
+    qDebug() << "show Metadata";
+    QSqlRecord rec = SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex)->adapter->database.record(t);
     QStandardItemModel *model = new QStandardItemModel(ui->dataTable);
 
     model->insertRows(0, rec.count());
@@ -258,6 +300,7 @@ void MainWindow::showMetaData(const QString &t)
 
 void MainWindow::insertRow()
 {
+    qDebug() << "insertRow";
     QSqlTableModel *model = qobject_cast<QSqlTableModel *>(ui->dataTable->model());
     if (!model)
         return;
@@ -272,6 +315,7 @@ void MainWindow::insertRow()
 
 void MainWindow::deleteRow()
 {
+    qDebug() << "deleteRow";
     QSqlTableModel *model = qobject_cast<QSqlTableModel *>(ui->dataTable->model());
     if (!model)
         return;
@@ -288,6 +332,7 @@ void MainWindow::deleteRow()
 
 void MainWindow::updateActions()
 {
+    qDebug() << "updateActions";
     QSqlTableModel * tm = qobject_cast<QSqlTableModel *>(ui->dataTable->model());
     bool enableIns = tm;
     bool enableDel = enableIns && ui->dataTable->currentIndex().isValid();
@@ -312,6 +357,7 @@ void MainWindow::updateActions()
 
 void MainWindow::about()
 {
+    qDebug() << "about";
     QMessageBox::about(this, tr("About"), tr("The SQL Browser demonstration "
         "shows how a data browser can be used to visualize the results of SQL"
                                              "statements on a live database"));
@@ -319,6 +365,7 @@ void MainWindow::about()
 
 void MainWindow::on_fieldStrategyAction_triggered()
 {
+    qDebug() << "on_fieldStrategyAction_triggered";
     QSqlTableModel * tm = qobject_cast<QSqlTableModel *>(ui->dataTable->model());
     if (tm)
         tm->setEditStrategy(QSqlTableModel::OnFieldChange);
@@ -326,6 +373,7 @@ void MainWindow::on_fieldStrategyAction_triggered()
 
 void MainWindow::on_rowStrategyAction_triggered()
 {
+    qDebug() << "on_rowStrategyAction_triggered";
     QSqlTableModel * tm = qobject_cast<QSqlTableModel *>(ui->dataTable->model());
     if (tm)
         tm->setEditStrategy(QSqlTableModel::OnRowChange);
@@ -333,6 +381,7 @@ void MainWindow::on_rowStrategyAction_triggered()
 
 void MainWindow::on_manualStrategyAction_triggered()
 {
+    qDebug() << "on_manualStategyAction_triggered";
     QSqlTableModel * tm = qobject_cast<QSqlTableModel *>(ui->dataTable->model());
     if (tm)
         tm->setEditStrategy(QSqlTableModel::OnManualSubmit);
@@ -340,6 +389,7 @@ void MainWindow::on_manualStrategyAction_triggered()
 
 void MainWindow::on_submitAction_triggered()
 {
+    qDebug() << "on_submitAction_triggered";
     QSqlTableModel * tm = qobject_cast<QSqlTableModel *>(ui->dataTable->model());
     if (tm)
         tm->submitAll();
@@ -347,6 +397,7 @@ void MainWindow::on_submitAction_triggered()
 
 void MainWindow::on_revertAction_triggered()
 {
+    qDebug() << "on_revertAction_triggered";
     QSqlTableModel * tm = qobject_cast<QSqlTableModel *>(ui->dataTable->model());
     if (tm)
         tm->revertAll();
@@ -354,34 +405,59 @@ void MainWindow::on_revertAction_triggered()
 
 void MainWindow::on_selectAction_triggered()
 {
+    qDebug() << "on_selectAction_triggered";
     QSqlTableModel * tm = qobject_cast<QSqlTableModel *>(ui->dataTable->model());
     if (tm)
         tm->select();
 }
 
 void MainWindow::on_insertRowAction_triggered(){
+    qDebug() << "on_insertRowAction_tiggered";
     insertRow();
 }
 
 void MainWindow::on_deleteRowAction_triggered(){
+    qDebug() << "on_deleteRowAction_tirggered()";
     deleteRow();
 }
 
 void MainWindow::on_clearButton_clicked()
 {
+    qDebug() << "on_clearButton_clicked";
     ui->queryEdit->clear();
     ui->queryEdit->setFocus();
 }
 
 void MainWindow::on_submitButton_clicked()
 {
+    qDebug() << "on_submitButton_clicked";
     exec();
     ui->queryEdit->setFocus();
 }
 
  QVariant TableInfoModel::data(const QModelIndex &idx, int role) const
 {
+     qDebug() << "TableInfoModel::data";
     if (role == Qt::BackgroundRole && isDirty(idx))
         return QBrush(QColor(Qt::yellow));
     return QSqlTableModel::data(idx, role);
+}
+
+void MainWindow::on_reconnectConnectionAction_triggered()
+{
+    qDebug() << "on_reconnectConnectionAction_triggered";
+    if(ui->tree->selectedIndex == -1) return;
+    DBManager *dbManager = SqlerSetting::getInstance().dbManagerList.at(ui->tree->selectedIndex);
+    if(dbManager->adapter->database.isOpen()) dbManager->adapter->database.close();
+    if(!dbManager->adapter->database.open()){
+        QSqlError err = dbManager->adapter->database.lastError();
+        QMessageBox::warning(this, tr("Unable to open database"), tr("An error occurred while "
+                                   "opening the connection: ") + err.text());
+    }
+    ui->tree->refresh();
+}
+void MainWindow::on_tree_activeDBRequested(int index)
+{
+    qDebug() << "on_tree_activeDBRequested";
+    ui->queryGroupBox->setTitle(tr("SQL Query : ") + DbTree::qDBCaption(SqlerSetting::getInstance().dbManagerList.at(index)->adapter));
 }
