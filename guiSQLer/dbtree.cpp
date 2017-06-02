@@ -5,36 +5,30 @@
 
 DbTree::DbTree(QWidget *parent) : QWidget(parent)
 {
-    qDebug() << "DbTree::DbTree";
     QVBoxLayout *layout = new QVBoxLayout(this);
 
     tree = new QTreeWidget(this);
     tree->setObjectName(QLatin1String("tree"));
     tree->setHeaderLabels(QStringList(tr("database")));
-    tree->header()->setSectionResizeMode(QHeaderView::Stretch);
 
     QAction *refreshAction = new QAction(tr("Refresh"), tree);
     deleteAction = new QAction(tr("Delete"), tree);
-    metaAction = new QAction(tr("Show Schema"), tree);
+
     connect(refreshAction, SIGNAL(triggered()), SLOT(refresh()));
     connect(deleteAction, SIGNAL(triggered()), SLOT(deleteDB()));
-    connect(metaAction, SIGNAL(triggered()), SLOT(onMetaAction()));
 
     tree->addAction(refreshAction);
     tree->addAction(deleteAction);
-    tree->addAction(metaAction);
     tree->setContextMenuPolicy(Qt::ActionsContextMenu);
 
-    layout->setMargin(2);
+    layout->setMargin(3);
     layout->addWidget(tree);
     QMetaObject::connectSlotsByName(this);
 }
 
 void DbTree::deleteDB()
 {
-    qDebug() << "deleteDB" << QSqlDatabase::connectionNames().count();
-
-    if(tree->currentItem()->parent()) return;
+    if(tree->currentIndex().row() < 0 || tree->currentItem()->parent()) return;
 
     QModelIndex index = tree->currentIndex();
     DBManager *dbManger = SqlerSetting::getInstance().dbManagerList.at(index.row());
@@ -63,33 +57,28 @@ void DbTree::deleteDB()
     refresh();
 }
 
-QString DbTree::qDBCaption(DBAdapter *dbAdapter)
+QString DbTree::qDBCaption(DBAdapterInfo adapterInfo)
 {
-    //qDebug() << "qDBCaption : " << dbAdapter->adapterInfo.driver << " " << dbAdapter->adapterInfo.name << " " << dbAdapter->adapterInfo.path;
-    QString dbCaption = dbAdapter->adapterInfo.driver;
-    if(!dbAdapter->adapterInfo.user.isEmpty()) dbCaption.append(':').append(dbAdapter->adapterInfo.user).append(QLatin1Char('@'));
-    if(!dbAdapter->adapterInfo.name.isEmpty()) dbCaption.append(':').append(dbAdapter->adapterInfo.name);
-    if(!dbAdapter->adapterInfo.path.isEmpty()) dbCaption.append(':').append(dbAdapter->adapterInfo.path);
-    if(!dbAdapter->adapterInfo.address.isEmpty()) dbCaption.append(':').append(dbAdapter->adapterInfo.address);
+    QString dbCaption = adapterInfo.driver;
+    if(!adapterInfo.user.isEmpty()) dbCaption.append(':').append(adapterInfo.user).append(QLatin1Char('@'));
+    if(!adapterInfo.name.isEmpty()) dbCaption.append(':').append(adapterInfo.name);
+    if(!adapterInfo.path.isEmpty()) dbCaption.append(':').append(adapterInfo.path);
+    if(!adapterInfo.address.isEmpty()) dbCaption.append(':').append(adapterInfo.address);
     return dbCaption;
 }
 
 void DbTree::refresh()
 {
-    qDebug() << "DbTree::refresh";
     tree->clear();
 
     bool isActiveDB = false;
-    qDebug() << "DbTree::refresh connection count " << QSqlDatabase::connectionNames().count();
     for(int i=0; i<SqlerSetting::getInstance().dbManagerList.count(); i++){
         QTreeWidgetItem *root = new QTreeWidgetItem(tree);
 
         QSqlDatabase db = SqlerSetting::getInstance().dbManagerList.at(i)->adapter->database;
-        root->setText(0, qDBCaption(SqlerSetting::getInstance().dbManagerList.at(i)->adapter));
-        qDebug() << " loop " << db.connectionName();
+        root->setText(0, qDBCaption(SqlerSetting::getInstance().dbManagerList.at(i)->adapter->adapterInfo));
         if(SqlerSetting::getInstance().dbManagerList.at(i)->adapter->database.connectionName() == currentDB) {
             isActiveDB = true;
-            //setActive( root);
         }
         if(db.isOpen()) {
             QStringList tables = db.tables();
@@ -109,7 +98,7 @@ void DbTree::refresh()
             }
         }
     }
-    qDebug() << "DbTree::refresh before setActive";
+
     if(!isActiveDB && SqlerSetting::getInstance().dbManagerList.count() != 0) {
         currentDB = SqlerSetting::getInstance().dbManagerList.at(SqlerSetting::getInstance().dbManagerList.count()-1)->adapter->database.connectionName();
         setActive(tree->topLevelItem(0));
@@ -127,7 +116,6 @@ static void qSetBold(QTreeWidgetItem *item, bool bold)
 
 void DbTree::setActive(QTreeWidgetItem *item)
 {
-    qDebug() << "DbTree::setActive";
     for(int i=0; i<tree->topLevelItemCount(); ++i) {
         if(tree->topLevelItem(i)->font(0).bold()) qSetBold(tree->topLevelItem(i), false);
     }
@@ -141,8 +129,7 @@ void DbTree::setActive(QTreeWidgetItem *item)
         if(!SqlerSetting::getInstance().dbManagerList.at(selectedIndex)->adapter->database.open()){
             QSqlError err = SqlerSetting::getInstance().dbManagerList.at(selectedIndex)->adapter->database.lastError();
             if (err.type() == QSqlError::ConnectionError){
-                qDebug() << "reconnect requested..";
-                emit reconnectRequested(selectedIndex);
+                emit resetConnectionRequested(selectedIndex);
             } else if (err.type() != QSqlError::NoError){
                 QMessageBox::warning(this, tr("Unable to open database"), tr("An error occurred while "
                                            "opening the connection: ") + err.text());
@@ -153,36 +140,21 @@ void DbTree::setActive(QTreeWidgetItem *item)
     }
 
     emit activeDBRequested(selectedIndex);
-    qDebug() << "Tree : setActive(DB:" << currentDB << ")";
+
 }
 
 void DbTree::on_tree_itemActivated(QTreeWidgetItem *item, int /* column */)
 {
-    qDebug() << "on_tree_itemActivated";
     if (!item) return;
-
     if (!item->parent()) {// database
         setActive(item);
     } else { // table
-        qDebug() << "item activated";
         setActive(item->parent());
         emit dataTableActivated(item->text(0));
     }
 }
 
-void DbTree::onMetaAction()
-{
-    qDebug() << "DbTree::onMetaAction";
-    QTreeWidgetItem *cItem = tree->currentItem();
-    if (!cItem || !cItem->parent())
-        return;
-    setActive(cItem->parent());
-    emit metaDataRequested(cItem->text(0));
-}
-
 void DbTree::on_tree_currentItemChanged(QTreeWidgetItem *current, QTreeWidgetItem *)
 {
-    qDebug() << "DbTree::on_tree_currentItemChanged";
-    metaAction->setEnabled(current && current->parent());
     deleteAction->setEnabled(current && !current->parent());
 }

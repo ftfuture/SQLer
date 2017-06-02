@@ -1,7 +1,7 @@
 #ifndef DBMANAGER_H
 #define DBMANAGER_H
 #include <QtSql>
-#include <QDebug>
+//#include <QDebug>
 #include "sqlertype.h"
 
 class DBAdapter : public QObject

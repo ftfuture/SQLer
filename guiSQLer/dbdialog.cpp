@@ -3,30 +3,20 @@
 #include <QSqlDatabase>
 #include <QFileDialog>
 #include <QMessageBox>
-#include <QDebug>
+#include "dbtree.h"
 
 DbDialog::DbDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::DbDialog)
 {
-    qDebug() << "DbDialog::DbDlialog";
     ui->setupUi(this);
 
-    // SQLITE, MYSQL, MSSQL, POSTGRESQL, ORACLE, DB2
-    // QSQLITE, QMYSQL, QMYSQL3, QODBC, QODBC3, QPSQL, QPSQL7
     QStringList drivers = QSqlDatabase::drivers();
     ui->typeCombo->addItems(drivers);
 
-    //sui->historyCombo->clear();
     SqlerSetting::getInstance().loadHistoryInfo();
     for(int i=0; i<SqlerSetting::getInstance().historyList.count(); i++){
-        QString caption = SqlerSetting::getInstance().historyList.at(i).driver+':';
-        if(!SqlerSetting::getInstance().historyList.at(i).user.isEmpty()) caption.append(SqlerSetting::getInstance().historyList.at(i).user).append("@");
-        if(!SqlerSetting::getInstance().historyList.at(i).name.isEmpty()) {
-            caption.append(SqlerSetting::getInstance().historyList.at(i).name);
-            if(!SqlerSetting::getInstance().historyList.at(i).address.isEmpty()) caption.append('/').append(SqlerSetting::getInstance().historyList.at(i).address);
-        } else if(!SqlerSetting::getInstance().historyList.at(i).path.isEmpty()) caption.append(SqlerSetting::getInstance().historyList.at(i).path);
-        ui->historyCombo->addItem(caption);
+        ui->historyCombo->addItem(DbTree::qDBCaption(SqlerSetting::getInstance().historyList.at(i)));
     }
 
 }
@@ -39,13 +29,11 @@ DbDialog::~DbDialog()
 
 void DbDialog::on_cancelButton_clicked()
 {
-    qDebug() << "DbDialog::on_cancelButton_clicked";
     reject();
 }
 
 void DbDialog::setAdapterInfo(const DBAdapterInfo &adapterInfo)
 {
-    qDebug() << "DbDialog::setAdapterInfo";
     ui->addressEdit->setText(adapterInfo.address);
     ui->dbEdit->setText(adapterInfo.name);
     ui->pathEdit->setText(adapterInfo.path);
@@ -123,15 +111,12 @@ int DbDialog::port() const
 
 void DbDialog::on_okButton_clicked()
 {
-    qDebug() << "DbDialog::on_okButton_clicked";
     if(ui->saveCheckBox->isCheckable() == true) addHistory();
     accept();
-
 }
 
 void DbDialog::addHistory()
 {
-    qDebug() << "DbDialog::addHistory";
     QDateTime addtime = QDateTime::currentDateTime();
     int removeIndex=0;
     if(SqlerSetting::getInstance().historyList.count() >= MAX_COUNT_HISTORY) {
@@ -150,13 +135,11 @@ void DbDialog::addHistory()
 
 void DbDialog::on_newButton_clicked()
 {
-    qDebug() << "DbDialog::on_newButton_clicked";
     ui->pathEdit->setText(getDbPath(true, NULL));
 }
 
 void DbDialog::on_openButton_clicked()
 {
-    qDebug() << "DbDialog::on_openButton_clicked";
     ui->pathEdit->setText(getDbPath(false, NULL));
 }
 

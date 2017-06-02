@@ -12,18 +12,16 @@ class DbTree : public QWidget
 public:
     int selectedIndex=-1;
     explicit DbTree(QWidget *parent = 0);
-    static QString qDBCaption(DBAdapter *dbAdapter);
+    static QString qDBCaption(DBAdapterInfo adapterInfo);
 
 signals:
     void activeDBRequested(int index);
-    void reconnectRequested(int index);
+    void resetConnectionRequested(int index);
     void dataTableActivated(const QString &table);
-    void metaDataRequested(const QString &tableName);
 
 public slots:
     void deleteDB();
     void refresh();
-    void onMetaAction();
     void on_tree_itemActivated(QTreeWidgetItem *item, int column);
     void on_tree_currentItemChanged(QTreeWidgetItem *current, QTreeWidgetItem *previous);
 
@@ -31,7 +29,6 @@ private:
     void setActive(QTreeWidgetItem *item);
 
     QTreeWidget *tree;
-    QAction *metaAction;
     QAction *deleteAction;
     QString currentDB;
 };

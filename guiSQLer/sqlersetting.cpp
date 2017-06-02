@@ -9,7 +9,6 @@ SqlerSetting::SqlerSetting(QObject *parent) : QObject(parent)
 
 void SqlerSetting::loadDBManagerInfo()
 {
-    qDebug() << "loadDBManagerInfo";
     qDeleteAll(dbManagerList);
     int count = dbList.count();
     for(int i=0; i<count; i++){
@@ -75,7 +74,6 @@ void SqlerSetting::loadDBListInfo()
         adapterInfo.path = settings.value("path").toString();
         adapterInfo.port = settings.value("port").toInt();
         adapterInfo.user = settings.value("user").toString();
-        qDebug() << "load db list " << adapterInfo.connection;
         dbList.append(adapterInfo);
     }
     settings.endArray();
@@ -89,7 +87,6 @@ void SqlerSetting::saveDBListInfo()
     for(int i=0; i<dbList.count(); i++){
         settings.setArrayIndex(i);
         DBAdapterInfo adapterInfo = dbList.at(i);
-        qDebug() <<  i << " save db list " << adapterInfo.connection;
         settings.setValue("driver",adapterInfo.driver);
         settings.setValue("connection",adapterInfo.connection);
         settings.setValue("address",adapterInfo.address);

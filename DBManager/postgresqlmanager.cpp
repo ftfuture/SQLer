@@ -8,7 +8,6 @@ PostgresqlManager::PostgresqlManager()
 
 void PostgresqlManager::loadSchema(const QString &t)
 {
-    qDebug() << "postgresql loadSchema " << t;
     schemaModel->setQuery(QString("SELECT attname, pg_catalog.format_type(atttypid, atttypmod),"
                                   " pg_catalog.pg_get_expr(adbin, adrelid), attnotnull, conname"
                                   " FROM pg_catalog.pg_class INNER JOIN pg_catalog.pg_attribute ON attrelid = pg_class.oid"
@@ -21,7 +20,6 @@ void PostgresqlManager::loadSchema(const QString &t)
 
 void PostgresqlManager::loadIndex(const QString &t)
 {
-    qDebug() << "postgresql loadIndex " << t;
     indexModel->setQuery(QString(
                              "SELECT ix.indkey, ix.indoption "
                              "FROM pg_class t, pg_class i, pg_index ix "

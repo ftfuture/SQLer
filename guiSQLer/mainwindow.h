@@ -22,7 +22,7 @@ public:
     void saveDBManagerInfo();
     QSqlError addConnection(const QString &driver, const QString &connectionName, const QString &dbName, const QString &address, bool isHistory,
                                 const QString &user, const QString &passwd,const QString &path, int port);
-    QSqlError reconnectConnection(int index, const QString &driver, const QString &connectionName, const QString &dbName, const QString &address, bool isHistory,
+    QSqlError resetConnection(int index, const QString &driver, const QString &connectionName, const QString &dbName, const QString &address, bool isHistory,
                                   const QString &user, const QString &passwd,const QString &path, int port);
     void insertRow();
     void deleteRow();
@@ -30,11 +30,9 @@ public:
 
 private slots:
     void addConnection();
-    void reconnectConnection(int index);
+    void resetConnection(int index);
     void exec();
-    void about();
-    void showTable(const QString &table);
-    void showMetaData(const QString &table);
+    void setupTable(const QString &table);
     void currentChanged() { updateActions(); }
 
     void on_insertRowAction_triggered();
@@ -48,40 +46,18 @@ private slots:
     void on_clearButton_clicked();
     void on_submitButton_clicked();
     void on_tree_dataTableActivated(const QString &table)
-    { showTable(table); }
-    void on_tree_metaDataRequested(const QString &table)
-    { showMetaData(table); }
-    void on_tree_reconnectRequested(int index)
-    { reconnectConnection(index); }
+    { setupTable(table); }
+    void on_tree_resetConnectionRequested(int index)
+    { resetConnection(index); }
     void on_tree_activeDBRequested(int index);
     void on_reconnectConnectionAction_triggered();
+    void on_deleteConnectionAction_triggered();
 
 private:
     Ui::MainWindow *ui;
 
 signals:
     void statusMessage(const QString &message);
-};
-
-class CustomModel: public QSqlTableModel
-{
-    Q_OBJECT
-public:
-    explicit CustomModel(QObject *parent = 0, QSqlDatabase db = QSqlDatabase()):QSqlTableModel(parent, db) {}
-    QVariant data(const QModelIndex &idx, int role) const Q_DECL_OVERRIDE
-    {
-        if (role == Qt::BackgroundRole && isDirty(idx))
-            return QBrush(QColor(Qt::yellow));
-        return QSqlTableModel::data(idx, role);
-    }
-};
-
-class TableInfoModel: public QSqlTableModel
-{
-    Q_OBJECT
-public:
-    explicit TableInfoModel(QObject *parent=0, QSqlDatabase db = QSqlDatabase()):QSqlTableModel(parent,db){}
-    QVariant data(const QModelIndex &idx, int role) const;
 };
 
 #endif // MAINWINDOW_H

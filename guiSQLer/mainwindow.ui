@@ -48,7 +48,7 @@
        <widget class="DbTree" name="tree"/>
        <widget class="QTabWidget" name="mainTab">
         <property name="currentIndex">
-         <number>0</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="dataTab">
          <attribute name="title">
@@ -247,6 +247,8 @@
      <string>&amp;File</string>
     </property>
     <addaction name="addConnectionAction"/>
+    <addaction name="reconnectConnectionAction"/>
+    <addaction name="deleteConnectionAction"/>
    </widget>
    <addaction name="menu_File"/>
   </widget>
@@ -337,7 +339,25 @@
     <string>Refresh Data from Database</string>
    </property>
   </action>
+  <action name="executeQueryAction">
+   <property name="text">
+    <string>&amp;Execute Query</string>
+   </property>
+   <property name="toolTip">
+    <string>Execute Query</string>
+   </property>
+  </action>
+  <action name="reconnectConnectionAction">
+   <property name="text">
+    <string>&amp;Reopen Connection</string>
+   </property>
+  </action>
   <action name="deleteConnectionAction">
+   <property name="text">
+    <string>&amp;Delete Connection</string>
+   </property>
+  </action>
+  <action name="deleteConnectionAction_2">
    <property name="text">
     <string>&amp;Delete Connection</string>
    </property>
@@ -345,20 +365,12 @@
     <string>Delete Connection</string>
    </property>
   </action>
-  <action name="reconnectConnectionAction">
+  <action name="reconnectConnectionAction_2">
    <property name="text">
     <string>&amp;Reconnect Connection</string>
    </property>
    <property name="toolTip">
     <string>Reconnect Connection</string>
-   </property>
-  </action>
-  <action name="executeQueryAction">
-   <property name="text">
-    <string>&amp;Execute Query</string>
-   </property>
-   <property name="toolTip">
-    <string>Execute Query</string>
    </property>
   </action>
  </widget>
